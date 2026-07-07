@@ -1,3 +1,5 @@
+#### I'm developing this, and most of the features are not implemented yet.
+
 # Chip-8 Emulator
 
 A software CPU virtual machine that runs classic Chip-8 ROMs (Pong, Space Invaders, etc.). Reads a binary ROM into simulated RAM, runs a fetch-decode-execute cycle: read opcode, interpret it (arithmetic, memory, jumps), update CPU state.
