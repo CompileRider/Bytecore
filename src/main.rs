@@ -11,7 +11,7 @@
 //! cargo run -- path/to/your/rom.ch8
 //! ```
 use bytecore::Emulator;
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use std::process;
 
 /// A Chip-8 emulator written in Rust.
@@ -21,6 +21,25 @@ struct Args {
     /// The path to the Chip-8 ROM file to load.
     #[arg(required = true)]
     rom_path: String,
+
+    /// Display backend to use.
+    #[arg(long, value_enum, default_value_t = Backend::Terminal)]
+    backend: Backend,
+
+    /// CPU clock speed in Hz.
+    #[arg(long, default_value_t = 700)]
+    hz: u32,
+
+    /// Enable debug logging.
+    #[arg(long)]
+    debug: bool,
+}
+
+/// Represents the available display backends.
+#[derive(ValueEnum, Clone, Debug)]
+enum Backend {
+    Sdl2,
+    Terminal,
 }
 
 fn main() {

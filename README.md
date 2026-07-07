@@ -1,6 +1,6 @@
 #### I'm developing this, and most of the features are not implemented yet.
 
-# Chip-8 Emulator
+# Bytecore Chip-8 Emulator
 
 A software CPU virtual machine that runs classic Chip-8 ROMs (Pong, Space Invaders, etc.). Reads a binary ROM into simulated RAM, runs a fetch-decode-execute cycle: read opcode, interpret it (arithmetic, memory, jumps), update CPU state.
 
@@ -22,11 +22,33 @@ A software CPU virtual machine that runs classic Chip-8 ROMs (Pong, Space Invade
 - (Optional) SDL2 for the graphical backend:
   - Linux: `sudo apt install libsdl2-dev`
   - macOS: `brew install sdl2`
+  - Windows: SDL2 is bundled via cargo, no manual installation needed.
 
 ### Running a ROM
 
+> **Note**: Please create a `roms/` directory in the project root and place your Chip-8 ROM files there.
+
 ```bash
 cargo run --release -- roms/PONG.ch8
+```
+
+Or with the terminal backend:
+
+```bash
+cargo run --release -- roms/PONG.ch8 --backend terminal
+```
+
+### Options
+
+```
+bytecore <ROM_PATH> [OPTIONS]
+
+Options:
+  --backend <sdl2|terminal>  Display backend to use [default: terminal]
+  --hz <HZ>                  CPU clock speed in Hz [default: 700]
+  --debug                    Enable debug logging
+  -h, --help                 Print help
+  -V, --version              Print version
 ```
 
 ### Building
