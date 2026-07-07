@@ -1,0 +1,8 @@
+/target
+*.pyc
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
