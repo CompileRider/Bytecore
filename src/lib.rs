@@ -60,7 +60,9 @@ impl Emulator {
     /// # Returns
     ///
     /// A new `Emulator` instance with its components initialized.
-    pub fn new() -> Self { Self {} }
+    pub fn new() -> Self {
+        Self {}
+    }
 
     /// Runs the emulator by loading a ROM from the specified path.
     ///
