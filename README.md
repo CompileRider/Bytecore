@@ -22,31 +22,11 @@ A software CPU virtual machine that runs classic Chip-8 ROMs (Pong, Space Invade
 - (Optional) SDL2 for the graphical backend:
   - Linux: `sudo apt install libsdl2-dev`
   - macOS: `brew install sdl2`
-  - Windows: SDL2 is bundled via cargo
 
 ### Running a ROM
 
 ```bash
 cargo run --release -- roms/PONG.ch8
-```
-
-Or with the terminal backend:
-
-```bash
-cargo run --release -- roms/PONG.ch8 --backend terminal
-```
-
-### Options
-
-```
-chip8-emu <rom_path> [options]
-
-Options:
-  --backend <sdl2|terminal>  Display backend (default: terminal)
-  --hz <N>                   CPU clock speed in Hz (default: 700)
-  --debug                    Enable debug logging
-  --help                     Show help
-  --version                  Show version
 ```
 
 ### Building
