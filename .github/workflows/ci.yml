@@ -1,43 +1,102 @@
-name: CI
+# .github/workflows/ci.yml
+
+name: Rust CI
+
+
+# - Triggers
 
 on:
   push:
-    branches: [main]
+    branches: ["main"]
+    # Only run CI if Rust files are changed
+    paths:
+      - "src/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/ci.yml"
   pull_request:
-    branches: [main]
+    branches: ["main"]
+    # Only run CI if Rust files are changed
+    paths:
+      - "src/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/ci.yml"
 
-env:
-  CARGO_TERM_COLOR: always
+
+# - Permissions
+
+permissions:
+  contents: read
+
+
+# - Jobs
 
 jobs:
-  build:
+  format:
+    name: "Check Formatting"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - name: Build
-        run: cargo build --verbose
+      - name: "Checkout"
+        uses: actions/checkout@v4
 
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - name: Run tests
-        run: cargo test --verbose
+      - name: "Install Rust Toolchain"
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: rustfmt
 
-  clippy:
+      - name: "Run rustfmt"
+        run: cargo fmt --all -- --check
+
+  lint:
+    name: "Linting (Clippy)"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - name: Clippy
+      - name: "Checkout"
+        uses: actions/checkout@v4
+
+      - name: "Install Rust Toolchain"
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: clippy
+      
+      - name: "Install SDL2"
+        run: sudo apt-get update && sudo apt-get install -y libsdl2-dev
+
+      - name: "Run Clippy (Default Features)"
         run: cargo clippy -- -D warnings
 
-  fmt:
-    runs-on: ubuntu-latest
+      - name: "Run Clippy (All Features)"
+        run: cargo clippy --all-features -- -D warnings
+      
+      - name: "Run Clippy (SDL2 only)"
+        run: cargo clippy --no-default-features --features sdl2 -- -D warnings
+
+      - name: "Run Clippy (Terminal only)"
+        run: cargo clippy --no-default-features --features terminal -- -D warnings
+
+  test:
+    name: "Testing"
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - name: Format check
-        run: cargo fmt --check
+      - name: "Checkout"
+        uses: actions/checkout@v4
+
+      - name: "Install Rust Toolchain"
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: "Cache dependencies"
+        uses: Swatinem/rust-cache@v2
+
+      - name: "Install SDL2 (Linux)"
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libsdl2-dev
+
+      - name: "Build Project"
+        run: cargo build --all-features --verbose
+
+      - name: "Run Tests"
+        run: cargo test --all-features --verbose
