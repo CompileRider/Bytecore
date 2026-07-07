@@ -6,3 +6,8 @@
 *.swp
 *.swo
 *~
+
+# IDE and tool-specific files
+.air/
+.claude/
+.specify/
