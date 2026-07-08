@@ -31,6 +31,7 @@ pub mod chip8;
 /// Provides different frontends for displaying the emulator's output.
 pub mod frontend;
 
+use chip8::Chip8;
 use thiserror::Error;
 
 /// The main error type for the emulator library.
@@ -52,16 +53,18 @@ pub type Result<T> = std::result::Result<T, EmulatorError>;
 /// This struct holds all the components of the emulator, including the CPU,
 /// memory, and display. It provides the main interface for running a ROM.
 #[derive(Debug)]
-pub struct Emulator;
+pub struct Emulator {
+    _chip8: Chip8,
+}
 
 impl Emulator {
     /// Creates a new, initialized emulator instance.
     ///
     /// # Returns
     ///
-    /// A new `Emulator` instance with its components initialized.
+    /// A new `Emulator` instance with all its components initialized.
     pub fn new() -> Self {
-        Self {}
+        Self { _chip8: Chip8::new() }
     }
 
     /// Runs the emulator by loading a ROM from the specified path.
