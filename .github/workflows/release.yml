@@ -126,7 +126,7 @@ jobs:
           Copy-Item "target/${{ matrix.target }}/release/bytecore.exe" "${{ matrix.artifact }}"
 
       - name: "Upload artifact"
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.artifact }}
@@ -144,7 +144,7 @@ jobs:
           fetch-depth: 0
 
       - name: "Download binaries"
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           path: artifacts
           pattern: bytecore-*
