@@ -1,0 +1,16 @@
+# Default owner for everything
+* @CompileRider
+
+# CI/CD
+.github/ @CompileRider
+.github/workflows/ @CompileRider
+
+# Core emulator
+src/chip8/ @CompileRider
+
+# Frontend
+src/frontend/ @CompileRider
+
+# Dependencies
+Cargo.toml @CompileRider
+Cargo.lock @CompileRider

@@ -1,0 +1,40 @@
+# .github/labeler.yml
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/workflows/**"
+          - ".github/dependabot.yml"
+
+docker:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "Dockerfile*"
+
+core:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/chip8/**"
+
+frontend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/frontend/**"
+
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "Cargo.toml"
+          - "Cargo.lock"
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
+          - "LICENSE"
+
+release:
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/workflows/release.yml"
+          - "CHANGELOG.md"
