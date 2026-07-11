@@ -143,10 +143,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: "Download all artifacts"
+      - name: "Download binaries"
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+          pattern: bytecore-*
 
       - name: "List artifacts"
         run: ls -lR artifacts
