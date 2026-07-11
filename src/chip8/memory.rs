@@ -1,4 +1,10 @@
 //! The memory module for the Chip-8 emulator.
+//!
+//! The Chip-8 system has 4096 bytes of RAM. Programs are loaded at address
+//! 0x200, and the built-in font sprites are stored at 0x050. All memory
+//! access outside the 4KB address space returns an error rather than panicking.
+
+use thiserror::Error;
 
 /// The Chip-8 has 4096 bytes of memory.
 const MEMORY_SIZE: usize = 4096;
@@ -6,6 +12,19 @@ const MEMORY_SIZE: usize = 4096;
 const PROG_START: u16 = 0x200;
 /// The font set is loaded into this area of memory.
 const FONT_SET_START: usize = 0x050;
+
+/// Errors that can occur during memory operations.
+///
+/// The Chip-8 has a 4KB address space (0x000–0xFFF). Any access outside
+/// this range is an error rather than a panic, allowing the caller to
+/// handle invalid ROM jumps gracefully.
+#[derive(Error, Debug)]
+#[non_exhaustive]
+pub enum MemoryError {
+    /// Attempted to access memory outside the valid 4KB address space.
+    #[error("Out of bounds memory access at address: {0:#06X}")]
+    OutOfBounds(usize),
+}
 
 /// Represents the RAM of the Chip-8 system.
 #[derive(Debug)]
@@ -25,14 +44,44 @@ impl Memory {
         memory
     }
 
+    /// Reads a single byte from memory at the given address.
+    ///
+    /// Returns `Err(MemoryError::OutOfBounds)` if the address is >= 4096.
+    ///
+    /// # Arguments
+    ///
+    /// * `addr` - The memory address to read from (0x000–0xFFF).
+    pub fn read_byte(&self, addr: u16) -> Result<u8, MemoryError> {
+        self.ram.get(addr as usize).copied().ok_or(MemoryError::OutOfBounds(addr as usize))
+    }
+
     /// Reads a 16-bit word from memory in big-endian format.
+    ///
+    /// Returns `Err(MemoryError::OutOfBounds)` if either byte falls
+    /// outside the valid 4KB address space.
     ///
     /// # Arguments
     ///
     /// * `addr` - The memory address to read the word from.
-    pub fn read_word(&self, addr: u16) -> u16 {
-        let addr = addr as usize;
-        (self.ram[addr] as u16) << 8 | (self.ram[addr + 1] as u16)
+    pub fn read_word(&self, addr: u16) -> Result<u16, MemoryError> {
+        let hi = self.read_byte(addr)?;
+        let lo = self.read_byte(addr.wrapping_add(1))?;
+        Ok(((hi as u16) << 8) | (lo as u16))
+    }
+
+    /// Writes a single byte to memory at the given address.
+    ///
+    /// Returns `Err(MemoryError::OutOfBounds)` if the address is >= 4096.
+    ///
+    /// # Arguments
+    ///
+    /// * `addr` - The memory address to write to (0x000–0xFFF).
+    /// * `value` - The byte value to write.
+    pub fn write_byte(&mut self, addr: u16, value: u8) -> Result<(), MemoryError> {
+        self.ram
+            .get_mut(addr as usize)
+            .map(|cell| *cell = value)
+            .ok_or(MemoryError::OutOfBounds(addr as usize))
     }
 
     /// Writes a ROM's data into memory, starting at `PROG_START`.

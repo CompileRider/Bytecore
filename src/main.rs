@@ -10,8 +10,11 @@
 //! ```sh
 //! cargo run -- path/to/your/rom.ch8
 //! ```
+
 use bytecore::Emulator;
+use bytecore::chip8::config::{Config, Quirks};
 use clap::{Parser, ValueEnum};
+use std::path::PathBuf;
 use std::process;
 
 /// A Chip-8 emulator written in Rust.
@@ -22,13 +25,23 @@ struct Args {
     #[arg(required = true)]
     rom_path: String,
 
+    /// Path to a TOML configuration file.
+    /// If not provided, default settings are used.
+    #[arg(short, long)]
+    config: Option<PathBuf>,
+
+    /// Override the quirk preset.
+    /// Accepts: cosmac-vip, modern, hp48
+    #[arg(long)]
+    quirks: Option<String>,
+
+    /// CPU clock speed in Hz (default: 700).
+    #[arg(long, default_value_t = 700)]
+    hz: u32,
+
     /// Display backend to use.
     #[arg(long, value_enum, default_value_t = Backend::Terminal)]
     backend: Backend,
-
-    /// CPU clock speed in Hz.
-    #[arg(long, default_value_t = 700)]
-    hz: u32,
 
     /// Enable debug logging.
     #[arg(long)]
@@ -46,12 +59,41 @@ fn main() {
     // Parse command-line arguments.
     let args = Args::parse();
 
-    // Create an emulator instance from our library.
-    let mut emulator = Emulator::new();
+    // Load configuration from TOML file if provided, otherwise use defaults.
+    let mut config = match &args.config {
+        Some(path) => {
+            if path.exists() {
+                Config::load(path)
+            } else {
+                eprintln!("Warning: config file '{}' not found, using defaults", path.display());
+                Config::default()
+            }
+        }
+        None => Config::default(),
+    };
+
+    // Override quirk preset from CLI if provided.
+    if let Some(ref quirk_name) = args.quirks {
+        config.quirks = match quirk_name.as_str() {
+            "cosmac-vip" | "cosmac" => Quirks::cosmac_vip(),
+            "hp48" => Quirks::hp48(),
+            "modern" => Quirks::modern(),
+            other => {
+                eprintln!("Warning: unknown quirk preset '{}', using modern", other);
+                Quirks::modern()
+            }
+        };
+    }
+
+    // Override CPU clock speed from CLI.
+    config.cpu_hz = args.hz;
+
+    // Create emulator with the assembled configuration.
+    let mut emulator = Emulator::with_config(config);
 
     // Run the emulator and handle any errors that may occur.
     if let Err(e) = emulator.run(&args.rom_path) {
-        eprintln!("Application error: {}", e);
+        eprintln!("Error: {}", e);
         process::exit(1);
     }
 }

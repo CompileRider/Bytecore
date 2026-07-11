@@ -7,24 +7,16 @@
 //! more readable and less error-prone.
 
 use std::fmt;
+use thiserror::Error;
 
 /// Represents an error that occurred while decoding an opcode.
-#[derive(Debug)]
+#[derive(Error, Debug)]
 #[non_exhaustive]
 pub enum OpcodeError {
     /// The opcode value does not correspond to any known instruction.
+    #[error("Unknown opcode: {0:#06X}")]
     UnknownOpcode(u16),
 }
-
-impl fmt::Display for OpcodeError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::UnknownOpcode(opcode) => write!(f, "Unknown opcode: {:#06X}", opcode),
-        }
-    }
-}
-
-impl std::error::Error for OpcodeError {}
 
 /// Represents a single Chip-8 instruction, decoded into a structured format.
 ///

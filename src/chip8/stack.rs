@@ -3,30 +3,21 @@
 //! The Chip-8 stack is used to store return addresses for subroutines.
 //! It has 16 levels of nesting.
 
-use std::fmt;
+use thiserror::Error;
 
 const STACK_SIZE: usize = 16;
 
 /// Represents an error that occurred during a stack operation.
-#[derive(Debug)]
+#[derive(Error, Debug)]
 #[non_exhaustive]
 pub enum StackError {
     /// The stack has overflowed (pushed beyond capacity).
+    #[error("Stack overflow")]
     Overflow,
     /// The stack has underflowed (popped from empty stack).
+    #[error("Stack underflow")]
     Underflow,
 }
-
-impl fmt::Display for StackError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Overflow => write!(f, "Stack overflow"),
-            Self::Underflow => write!(f, "Stack underflow"),
-        }
-    }
-}
-
-impl std::error::Error for StackError {}
 
 /// Represents the Chip-8 stack and stack pointer.
 #[derive(Debug)]
