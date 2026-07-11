@@ -1,4 +1,4 @@
-//! The core components of the Chip-8 virtual machine.
+//! The core components of the CHIP-8 virtual machine.
 
 pub mod keypad;
 pub mod memory;
@@ -15,23 +15,23 @@ use timers::Timers;
 #[derive(Debug)]
 pub struct Chip8 {
     /// The system's timers.
-    pub timers: Timers,
+    _timers: Timers,
     /// The system's stack.
-    pub stack: Stack,
+    _stack: Stack,
     /// The system's memory.
-    pub memory: Memory,
+    _memory: Memory,
     /// The system's keypad.
-    pub keypad: Keypad,
+    _keypad: Keypad,
 }
 
 impl Chip8 {
     /// Creates a new `Chip8` instance.
     pub fn new() -> Self {
         Self {
-            timers: Timers::new(),
-            stack: Stack::new(),
-            memory: Memory::new(),
-            keypad: Keypad::new(),
+            _timers: Timers::new(),
+            _stack: Stack::new(),
+            _memory: Memory::new(),
+            _keypad: Keypad::new(),
         }
     }
 }

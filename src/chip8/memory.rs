@@ -20,9 +20,7 @@ impl Memory {
     /// The memory is initialized to all zeros, and then the Chip-8 font set
     /// is loaded into its reserved memory area.
     pub fn new() -> Self {
-        let mut memory = Memory {
-            ram: [0; MEMORY_SIZE],
-        };
+        let mut memory = Memory { ram: [0; MEMORY_SIZE] };
         memory.load_fonts();
         memory
     }

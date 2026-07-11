@@ -7,9 +7,9 @@
 #[derive(Debug, Default)]
 pub struct Timers {
     /// The delay timer is used for timing events in games.
-    pub delay: u8,
+    pub(crate) delay: u8,
     /// The sound timer is used for generating sound.
-    pub sound: u8,
+    pub(crate) sound: u8,
 }
 
 impl Timers {

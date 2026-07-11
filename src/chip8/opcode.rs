@@ -1,19 +1,37 @@
 //! Chip-8 Opcode Definitions
-//
-// This module defines the `Opcode` enum, which represents all possible instructions
-// in the Chip-8 instruction set. By parsing the raw u16 opcodes into this
-// strongly-typed enum, we leverage Rust's type system to ensure that all
-// instructions are handled correctly and to make the CPU's execution loop
-// more readable and less error-prone.
+//!
+//! This module defines the `Opcode` enum, which represents all possible instructions
+//! in the Chip-8 instruction set. By parsing the raw u16 opcodes into this
+//! strongly-typed enum, we leverage Rust's type system to ensure that all
+//! instructions are handled correctly and to make the CPU's execution loop
+//! more readable and less error-prone.
 
 use std::fmt;
+
+/// Represents an error that occurred while decoding an opcode.
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum OpcodeError {
+    /// The opcode value does not correspond to any known instruction.
+    UnknownOpcode(u16),
+}
+
+impl fmt::Display for OpcodeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::UnknownOpcode(opcode) => write!(f, "Unknown opcode: {:#06X}", opcode),
+        }
+    }
+}
+
+impl std::error::Error for OpcodeError {}
 
 /// Represents a single Chip-8 instruction, decoded into a structured format.
 ///
 /// Each variant corresponds to one of the 35 Chip-8 opcodes. The variants store
 /// the decoded parameters (like register indices, addresses, and literal values)
 /// in their correct types, providing type safety and clarity.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Opcode {
     /// 0nnn - SYS addr
     ///
@@ -123,7 +141,7 @@ pub enum Opcode {
     /// significant bit of `Vx` before the shift. Some early interpreters ignored
     /// Vy and shifted Vx, while modern ones may use Vy as the source. This
     /// implementation follows the modern standard of shifting `Vx`.
-    ShrVx(u8),
+    ShrVxVy(u8, u8),
 
     /// 8xy7 - SUBN Vx, Vy
     ///
@@ -136,7 +154,7 @@ pub enum Opcode {
     /// Shifts `Vx` left by one bit. `VF` is set to the value of the most
     /// significant bit of `Vx` before the shift. Similar to SHR, this follows the
     /// modern standard of shifting `Vx`.
-    ShlVx(u8),
+    ShlVxVy(u8, u8),
 
     /// 9xy0 - SNE Vx, Vy
     ///
@@ -211,7 +229,7 @@ pub enum Opcode {
     /// Fx29 - LD F, Vx
     ///
     /// Sets the index register `I` to the memory location of the sprite for the
-    /// digit stored in `Vx`. The built-in fontset starts at memory address 0x000.
+    /// digit stored in `Vx`. The built-in fontset starts at memory address 0x050.
     LdF(u8),
 
     /// Fx33 - LD B, Vx
@@ -235,8 +253,8 @@ pub enum Opcode {
 }
 
 impl Opcode {
-    /// Decodes a `u16` into an `Opcode`.
-    pub fn from(opcode: u16) -> Self {
+    /// Decodes a `u16` into an `Opcode`, returning an error for unknown opcodes.
+    pub fn decode(opcode: u16) -> Result<Self, OpcodeError> {
         let op_1 = (opcode & 0xF000) >> 12;
         let op_2 = (opcode & 0x0F00) >> 8;
         let op_3 = (opcode & 0x00F0) >> 4;
@@ -249,43 +267,51 @@ impl Opcode {
         let n = op_4 as u8;
 
         match (op_1, op_2, op_3, op_4) {
-            (0, 0, 0xE, 0) => Self::Cls,
-            (0, 0, 0xE, 0xE) => Self::Ret,
-            (0, _, _, _) => Self::Sys(nnn),
-            (1, _, _, _) => Self::Jp(nnn),
-            (2, _, _, _) => Self::Call(nnn),
-            (3, _, _, _) => Self::SeVxByte(x, kk),
-            (4, _, _, _) => Self::SneVxByte(x, kk),
-            (5, _, _, 0) => Self::SeVxVy(x, y),
-            (6, _, _, _) => Self::LdVxByte(x, kk),
-            (7, _, _, _) => Self::AddVxByte(x, kk),
-            (8, _, _, 0) => Self::LdVxVy(x, y),
-            (8, _, _, 1) => Self::OrVxVy(x, y),
-            (8, _, _, 2) => Self::AndVxVy(x, y),
-            (8, _, _, 3) => Self::XorVxVy(x, y),
-            (8, _, _, 4) => Self::AddVxVy(x, y),
-            (8, _, _, 5) => Self::SubVxVy(x, y),
-            (8, _, _, 6) => Self::ShrVx(x),
-            (8, _, _, 7) => Self::SubnVxVy(x, y),
-            (8, _, _, 0xE) => Self::ShlVx(x),
-            (9, _, _, 0) => Self::SneVxVy(x, y),
-            (0xA, _, _, _) => Self::LdI(nnn),
-            (0xB, _, _, _) => Self::JpV0(nnn),
-            (0xC, _, _, _) => Self::Rnd(x, kk),
-            (0xD, _, _, _) => Self::Drw(x, y, n),
-            (0xE, _, 9, 0xE) => Self::Skp(x),
-            (0xE, _, 0xA, 1) => Self::Sknp(x),
-            (0xF, _, 0, 7) => Self::LdVxDt(x),
-            (0xF, _, 0, 0xA) => Self::LdVxK(x),
-            (0xF, _, 1, 5) => Self::LdDtVx(x),
-            (0xF, _, 1, 8) => Self::LdStVx(x),
-            (0xF, _, 1, 0xE) => Self::AddIVx(x),
-            (0xF, _, 2, 9) => Self::LdF(x),
-            (0xF, _, 3, 3) => Self::LdB(x),
-            (0xF, _, 5, 5) => Self::LdIVx(x),
-            (0xF, _, 6, 5) => Self::LdVxI(x),
-            _ => panic!("Unknown opcode: {:#06X}", opcode),
+            (0, 0, 0xE, 0) => Ok(Self::Cls),
+            (0, 0, 0xE, 0xE) => Ok(Self::Ret),
+            (0, _, _, _) => Ok(Self::Sys(nnn)),
+            (1, _, _, _) => Ok(Self::Jp(nnn)),
+            (2, _, _, _) => Ok(Self::Call(nnn)),
+            (3, _, _, _) => Ok(Self::SeVxByte(x, kk)),
+            (4, _, _, _) => Ok(Self::SneVxByte(x, kk)),
+            (5, _, _, 0) => Ok(Self::SeVxVy(x, y)),
+            (6, _, _, _) => Ok(Self::LdVxByte(x, kk)),
+            (7, _, _, _) => Ok(Self::AddVxByte(x, kk)),
+            (8, _, _, 0) => Ok(Self::LdVxVy(x, y)),
+            (8, _, _, 1) => Ok(Self::OrVxVy(x, y)),
+            (8, _, _, 2) => Ok(Self::AndVxVy(x, y)),
+            (8, _, _, 3) => Ok(Self::XorVxVy(x, y)),
+            (8, _, _, 4) => Ok(Self::AddVxVy(x, y)),
+            (8, _, _, 5) => Ok(Self::SubVxVy(x, y)),
+            (8, _, _, 6) => Ok(Self::ShrVxVy(x, y)),
+            (8, _, _, 7) => Ok(Self::SubnVxVy(x, y)),
+            (8, _, _, 0xE) => Ok(Self::ShlVxVy(x, y)),
+            (9, _, _, 0) => Ok(Self::SneVxVy(x, y)),
+            (0xA, _, _, _) => Ok(Self::LdI(nnn)),
+            (0xB, _, _, _) => Ok(Self::JpV0(nnn)),
+            (0xC, _, _, _) => Ok(Self::Rnd(x, kk)),
+            (0xD, _, _, _) => Ok(Self::Drw(x, y, n)),
+            (0xE, _, 9, 0xE) => Ok(Self::Skp(x)),
+            (0xE, _, 0xA, 1) => Ok(Self::Sknp(x)),
+            (0xF, _, 0, 7) => Ok(Self::LdVxDt(x)),
+            (0xF, _, 0, 0xA) => Ok(Self::LdVxK(x)),
+            (0xF, _, 1, 5) => Ok(Self::LdDtVx(x)),
+            (0xF, _, 1, 8) => Ok(Self::LdStVx(x)),
+            (0xF, _, 1, 0xE) => Ok(Self::AddIVx(x)),
+            (0xF, _, 2, 9) => Ok(Self::LdF(x)),
+            (0xF, _, 3, 3) => Ok(Self::LdB(x)),
+            (0xF, _, 5, 5) => Ok(Self::LdIVx(x)),
+            (0xF, _, 6, 5) => Ok(Self::LdVxI(x)),
+            _ => Err(OpcodeError::UnknownOpcode(opcode)),
         }
+    }
+}
+
+impl TryFrom<u16> for Opcode {
+    type Error = OpcodeError;
+
+    fn try_from(opcode: u16) -> Result<Self, Self::Error> {
+        Self::decode(opcode)
     }
 }
 
@@ -308,9 +334,9 @@ impl fmt::Display for Opcode {
             Self::XorVxVy(x, y) => write!(f, "XOR V{:X}, V{:X}", x, y),
             Self::AddVxVy(x, y) => write!(f, "ADD V{:X}, V{:X}", x, y),
             Self::SubVxVy(x, y) => write!(f, "SUB V{:X}, V{:X}", x, y),
-            Self::ShrVx(x) => write!(f, "SHR V{:X}", x),
+            Self::ShrVxVy(x, y) => write!(f, "SHR V{:X}, V{:X}", x, y),
             Self::SubnVxVy(x, y) => write!(f, "SUBN V{:X}, V{:X}", x, y),
-            Self::ShlVx(x) => write!(f, "SHL V{:X}", x),
+            Self::ShlVxVy(x, y) => write!(f, "SHL V{:X}, V{:X}", x, y),
             Self::SneVxVy(x, y) => write!(f, "SNE V{:X}, V{:X}", x, y),
             Self::LdI(nnn) => write!(f, "LD I, {:#05X}", nnn),
             Self::JpV0(nnn) => write!(f, "JP V0, {:#05X}", nnn),

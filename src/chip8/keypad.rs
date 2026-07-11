@@ -4,7 +4,7 @@
 const KEY_COUNT: usize = 16;
 
 /// Represents the 16-key hexadecimal keypad of the Chip-8.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Keypad {
     /// An array representing the state of the 16 keys (pressed or not).
     keys: [bool; KEY_COUNT],
@@ -13,9 +13,7 @@ pub struct Keypad {
 impl Keypad {
     /// Creates a new `Keypad` instance with all keys released.
     pub fn new() -> Self {
-        Keypad {
-            keys: [false; KEY_COUNT],
-        }
+        Keypad { keys: [false; KEY_COUNT] }
     }
 
     /// Checks if a specific key is currently pressed.
@@ -24,7 +22,7 @@ impl Keypad {
     ///
     /// * `key_code` - The code of the key (0x0-0xF).
     pub fn is_key_pressed(&self, key_code: u8) -> bool {
-        self.keys[key_code as usize]
+        self.keys.get(key_code as usize).copied().unwrap_or(false)
     }
 
     /// Sets the state of a key (pressed or released).
@@ -34,7 +32,9 @@ impl Keypad {
     /// * `key_code` - The code of the key (0x0-0xF).
     /// * `pressed` - `true` if the key is pressed, `false` otherwise.
     pub fn set_key_pressed(&mut self, key_code: u8, pressed: bool) {
-        self.keys[key_code as usize] = pressed;
+        if let Some(key) = self.keys.get_mut(key_code as usize) {
+            *key = pressed;
+        }
     }
 
     /// Returns the code of the first key found to be pressed.
@@ -44,7 +44,7 @@ impl Keypad {
     pub fn get_key_pressed(&self) -> Option<u8> {
         for (i, &key) in self.keys.iter().enumerate() {
             if key {
-                return Some(i as u8);
+                return u8::try_from(i).ok();
             }
         }
         None

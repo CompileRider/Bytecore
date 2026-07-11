@@ -62,7 +62,7 @@ cargo build --release
 ```bash
 cargo test
 cargo clippy -- -D warnings
-cargo fmt --check
+cargo fmt -- --check
 ```
 
 ## Test ROMs
@@ -81,13 +81,13 @@ Game ROMs are available from [kripod/chip8-roms](https://github.com/kripod/chip8
 
 ```
 ROM at 0x200 → [Mem 4096] → fetch 2 B → decode → execute → draw/timer → loop
-                    Font at 0x000                           PC += 2     60 Hz
+                    Font at 0x050                           PC += 2     60 Hz
 ```
 
 | Component | Description |
 |-----------|-------------|
 | **CPU** | 16×V regs (8-bit), I (16), PC (12), SP (8), DT/ST (8) |
-| **Memory** | 4096 B flat RAM, programs loaded at 0x200, font at 0x000 |
+| **Memory** | 4096 B flat RAM, programs loaded at 0x200, font at 0x050 |
 | **Stack** | 16 levels LIFO |
 | **Display** | 64×32 monochrome, XOR draw, collision detection |
 | **Input** | 16-key hex keypad |
@@ -99,8 +99,8 @@ Configurable behavior for compatibility with original COSMAC VIP, modern interpr
 
 | Quirk | COSMAC VIP (orig) | Modern (default) |
 |-------|-------------------|-------------------|
-| Shift | `Vx >>= 1` | `Vx = Vy >> 1` |
-| I inc | I += N | I unchanged |
+| Shift | `Vx = Vy >> 1` | `Vx >>= 1` |
+| I inc | `I += X + 1` | I unchanged |
 | Wait | Wait VBlank | Immediate |
 | VF | Preserved | VF = 0 |
 | Jump | `NNN+V0` only | `NNN+Vx` (HP48) |
