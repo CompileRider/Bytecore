@@ -1,0 +1,22 @@
+# Dockerfile.sdl2 — Build with SDL2 support (larger image)
+FROM rust:1-slim AS builder
+
+WORKDIR /app
+
+COPY Cargo.toml Cargo.lock ./
+COPY src ./src
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends pkg-config libsdl2-dev && \
+    rm -rf /var/lib/apt/lists/* && \
+    cargo build --release --locked --features sdl2
+
+FROM debian:bookworm-slim
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates libsdl2-2.0-0 && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /app/target/release/bytecore /usr/local/bin/
+
+ENTRYPOINT ["bytecore"]
