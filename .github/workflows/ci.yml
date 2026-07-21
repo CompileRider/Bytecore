@@ -93,18 +93,21 @@ jobs:
 
       - name: "Install SDL2 (macOS)"
         if: runner.os == 'macOS'
-        run: brew install sdl2
+        run: |
+          brew install sdl2
+          echo "LIBRARY_PATH=/opt/homebrew/lib" >> $GITHUB_ENV
 
       - name: "Install SDL2 (Windows)"
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           vcpkg install sdl2:x64-windows
-          echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" >> $env:GITHUB_ENV
-          echo "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin" >> $env:GITHUB_PATH
-          echo "SDL2_DIR=$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows" >> $env:GITHUB_ENV
-          echo "SDL2_LIB_DIR=$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/lib" >> $env:GITHUB_ENV
-          echo "SDL2_INCLUDE_DIR=$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/include" >> $env:GITHUB_ENV
+          $vcpkg_root = $env:VCPKG_INSTALLATION_ROOT
+          echo "VCPKG_ROOT=$vcpkg_root" >> $env:GITHUB_ENV
+          echo "$vcpkg_root\installed\x64-windows\bin" >> $env:GITHUB_PATH
+          echo "SDL2_DIR=$vcpkg_root\installed\x64-windows" >> $env:GITHUB_ENV
+          echo "SDL2_LIB_DIR=$vcpkg_root\installed\x64-windows\lib" >> $env:GITHUB_ENV
+          echo "SDL2_INCLUDE_DIR=$vcpkg_root\installed\x64-windows\include" >> $env:GITHUB_ENV
 
       - name: "Build"
         run: cargo build --locked --all-features --verbose

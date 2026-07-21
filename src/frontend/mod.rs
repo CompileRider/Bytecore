@@ -141,7 +141,7 @@ pub fn map_key_to_chip8(key: char) -> Option<u8> {
         'x' | 'X' => Some(0x0),
         'c' | 'C' => Some(0xB),
         'v' | 'V' => Some(0xF),
-        ' ' => Some(0x5),       // Map Space to 5 (Action/Fire)
+        ' ' => Some(0x5), // Map Space to 5 (Action/Fire)
         _ => None,
     }
 }

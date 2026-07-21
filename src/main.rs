@@ -102,7 +102,8 @@ fn main() {
     });
 
     // Create the appropriate frontend and run the emulator.
-    let result = match args.backend {
+    #[allow(unused_variables)]
+    let result: bytecore::Result<()> = match args.backend {
         Backend::Terminal => {
             #[cfg(feature = "terminal")]
             {
@@ -139,6 +140,7 @@ fn main() {
         }
     };
 
+    #[allow(unreachable_code)]
     if let Err(e) = result {
         eprintln!("Error during emulation: {}", e);
         process::exit(1);

@@ -60,17 +60,17 @@ const BG: Color = Color::RGB(0x0A, 0x0A, 0x0F);
 fn map_sdl2_keycode(keycode: Keycode) -> Option<u8> {
     match keycode {
         // Player 1 controls (PONG: 1/Q) mapped to W/S or UP/DOWN arrows
-        Keycode::NUM_1 | Keycode::W | Keycode::UP => Some(0x1),   // PONG Player 1 Up
-        Keycode::Q | Keycode::S | Keycode::DOWN => Some(0x4),     // PONG Player 1 Down
+        Keycode::NUM_1 | Keycode::W | Keycode::UP => Some(0x1), // PONG Player 1 Up
+        Keycode::Q | Keycode::S | Keycode::DOWN => Some(0x4),   // PONG Player 1 Down
         Keycode::NUM_2 => Some(0x2),
         Keycode::NUM_3 => Some(0x3),
         // Player 2 controls (PONG: 4/R) mapped to I/K
-        Keycode::NUM_4 | Keycode::I => Some(0xC),                 // PONG Player 2 Up (C)
+        Keycode::NUM_4 | Keycode::I => Some(0xC), // PONG Player 2 Up (C)
         Keycode::E => Some(0x6),
-        Keycode::R | Keycode::K => Some(0xD),                     // PONG Player 2 Down (D)
+        Keycode::R | Keycode::K => Some(0xD), // PONG Player 2 Down (D)
         Keycode::A | Keycode::LEFT => Some(0x7),
         Keycode::D | Keycode::RIGHT => Some(0x9),
-        Keycode::SPACE => Some(0x5),                              // Action/Fire (5)
+        Keycode::SPACE => Some(0x5), // Action/Fire (5)
         Keycode::F => Some(0xE),
         Keycode::Z => Some(0xA),
         Keycode::X => Some(0x0),
