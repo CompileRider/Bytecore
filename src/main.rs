@@ -91,9 +91,56 @@ fn main() {
     // Create emulator with the assembled configuration.
     let mut emulator = Emulator::with_config(config);
 
-    // Run the emulator and handle any errors that may occur.
-    if let Err(e) = emulator.run(&args.rom_path) {
-        eprintln!("Error: {}", e);
+    // Read and load the ROM into emulated memory.
+    let rom = std::fs::read(&args.rom_path).unwrap_or_else(|e| {
+        eprintln!("Error reading ROM '{}': {}", args.rom_path, e);
+        process::exit(1);
+    });
+    emulator.load_rom_data(&rom).unwrap_or_else(|e| {
+        eprintln!("Error loading ROM: {}", e);
+        process::exit(1);
+    });
+
+    // Create the appropriate frontend and run the emulator.
+    let result = match args.backend {
+        Backend::Terminal => {
+            #[cfg(feature = "terminal")]
+            {
+                match bytecore::frontend::terminal::TerminalFrontend::new() {
+                    Ok(mut frontend) => emulator.run_with_frontend(&mut frontend),
+                    Err(e) => {
+                        eprintln!("Error initializing terminal frontend: {}", e);
+                        process::exit(1);
+                    }
+                }
+            }
+            #[cfg(not(feature = "terminal"))]
+            {
+                eprintln!("Terminal backend is not enabled (compile with default features)");
+                process::exit(1);
+            }
+        }
+        Backend::Sdl2 => {
+            #[cfg(feature = "sdl2")]
+            {
+                match bytecore::frontend::sdl2::Sdl2Frontend::new() {
+                    Ok(mut frontend) => emulator.run_with_frontend(&mut frontend),
+                    Err(e) => {
+                        eprintln!("Error initializing SDL2 frontend: {}", e);
+                        process::exit(1);
+                    }
+                }
+            }
+            #[cfg(not(feature = "sdl2"))]
+            {
+                eprintln!("SDL2 backend is not enabled (compile with --features sdl2)");
+                process::exit(1);
+            }
+        }
+    };
+
+    if let Err(e) = result {
+        eprintln!("Error during emulation: {}", e);
         process::exit(1);
     }
 }

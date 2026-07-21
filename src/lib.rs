@@ -31,6 +31,7 @@ pub mod frontend;
 
 use chip8::Chip8;
 use chip8::config::Config;
+use chip8::memory::MemoryError;
 use thiserror::Error;
 
 /// The main error type for the emulator library.
@@ -46,6 +47,10 @@ pub enum EmulatorError {
     /// A CPU execution error occurred (invalid opcode, stack error, etc.).
     #[error("CPU error: {0}")]
     Cpu(#[from] chip8::cpu::CpuError),
+
+    /// A memory operation failed (out of bounds, ROM too large).
+    #[error("Memory error: {0}")]
+    Memory(#[from] MemoryError),
 
     /// The ROM file exceeds the maximum size for the Chip-8 address space.
     /// Programs can only occupy addresses 0x200–0xFFF (3584 bytes).
@@ -65,14 +70,28 @@ pub type Result<T> = std::result::Result<T, EmulatorError>;
 ///
 /// ```no_run
 /// use bytecore::Emulator;
+/// use bytecore::frontend::{Frontend, UserAction};
+/// # use bytecore::frontend::TickSource;
 ///
+/// struct DummyFrontend {
+///     tick: TickSource,
+/// }
+/// impl Frontend for DummyFrontend {
+///     fn handle_events(&mut self, _keypad: &mut bytecore::chip8::keypad::Keypad) -> UserAction { UserAction::Continue }
+///     fn render(&mut self, _display: &bytecore::chip8::display::Display) {}
+///     fn wait_for_next_frame(&mut self) { self.tick.wait_for_next_frame(); }
+/// }
 /// let mut emulator = Emulator::new();
-/// emulator.run("roms/PONG.ch8").unwrap();
+/// emulator.load_rom_data(&[0x00, 0xE0]).unwrap(); // CLS opcode
+/// let mut frontend = DummyFrontend { tick: TickSource::new(60) };
+/// emulator.run_with_frontend(&mut frontend).unwrap();
 /// ```
 #[derive(Debug)]
 pub struct Emulator {
     /// The Chip-8 virtual machine instance.
     chip8: Chip8,
+    /// Store the original loaded ROM data to support resetting.
+    rom_data: Vec<u8>,
 }
 
 impl Emulator {
@@ -80,7 +99,7 @@ impl Emulator {
     ///
     /// Uses modern quirk settings and 700 Hz CPU clock speed.
     pub fn new() -> Self {
-        Self { chip8: Chip8::new() }
+        Self { chip8: Chip8::new(), rom_data: Vec::new() }
     }
 
     /// Creates a new emulator with a custom configuration.
@@ -95,7 +114,7 @@ impl Emulator {
     pub fn with_config(config: Config) -> Self {
         let mut chip8 = Chip8::new();
         *chip8.config_mut() = config;
-        Self { chip8 }
+        Self { chip8, rom_data: Vec::new() }
     }
 
     /// Returns a reference to the Chip-8 display for rendering.
@@ -113,10 +132,99 @@ impl Emulator {
         self.chip8.config()
     }
 
+    /// Returns the current value of the sound timer.
+    pub fn sound_timer(&self) -> u8 {
+        self.chip8.sound_timer()
+    }
+
+    /// Loads ROM byte data into emulated memory.
+    ///
+    /// Validates that the ROM fits within the Chip-8 program space
+    /// (0x200–0xFFF, max 3584 bytes) and loads it at the standard
+    /// program start address (0x200).
+    ///
+    /// # Arguments
+    ///
+    /// * `rom` - The raw ROM bytes to load.
+    ///
+    /// # Errors
+    ///
+    /// Returns `EmulatorError::Memory` if the ROM exceeds the program memory area.
+    pub fn load_rom_data(&mut self, rom: &[u8]) -> Result<()> {
+        self.rom_data = rom.to_vec();
+        self.chip8.load_rom(rom)?;
+        Ok(())
+    }
+
+    /// Resets the emulator to its initial state, reloading the original ROM.
+    pub fn reset(&mut self) -> Result<()> {
+        self.chip8.reset(&self.rom_data)?;
+        Ok(())
+    }
+
+    /// Runs the emulator with the given display frontend.
+    ///
+    /// This is the primary run loop. It executes the CPU at the configured
+    /// clock speed, calling the frontend for input handling, rendering,
+    /// and frame-rate timing.
+    ///
+    /// # Arguments
+    ///
+    /// * `frontend` - The display frontend (e.g., terminal or SDL2).
+    ///
+    /// # Errors
+    ///
+    /// Returns `EmulatorError::Cpu` if an invalid opcode is encountered.
+    pub fn run_with_frontend(&mut self, frontend: &mut impl frontend::Frontend) -> Result<()> {
+        // The CPU runs at config.cpu_hz (default 700 Hz), while timers
+        // decrement at a fixed 60 Hz rate. We execute ticks_per_frame CPU
+        // steps per display frame.
+        let ticks_per_frame = self.chip8.config().cpu_hz / 60;
+        let mut paused = false;
+
+        loop {
+            // Let the frontend handle input events.
+            match frontend.handle_events(self.keypad()) {
+                frontend::UserAction::Exit => break,
+                frontend::UserAction::PauseToggle => {
+                    paused = !paused;
+                }
+                frontend::UserAction::Reset => {
+                    self.reset()?;
+                    paused = false; // Unpause automatically on reset
+                }
+                frontend::UserAction::Continue => {}
+            }
+
+            if !paused {
+                // Execute CPU ticks for one frame (~16.67 ms at 60 Hz).
+                for _ in 0..ticks_per_frame {
+                    self.chip8.tick()?;
+                }
+                // Decrement timers at 60 Hz.
+                self.chip8.update_timers();
+            }
+
+            // Update the frontend's sound state.
+            frontend.update_sound(self.sound_timer() > 0 && !paused);
+
+            // Render the current display state.
+            frontend.render(self.display());
+
+            // Wait for the next frame boundary (target: 60 FPS).
+            frontend.wait_for_next_frame();
+        }
+
+        Ok(())
+    }
+
     /// Runs the emulator by loading a ROM from the specified path.
     ///
-    /// This method reads the ROM file, validates its size, loads it into
-    /// the emulated memory, and enters the fetch-decode-execute loop.
+    /// This is a convenience method that reads the ROM file, validates
+    /// its size, loads it into memory, and runs with the default terminal
+    /// frontend (or a simple tick loop if no frontend is available).
+    ///
+    /// Prefer `load_rom_data()` + `run_with_frontend()` for more control.
     ///
     /// # Arguments
     ///
@@ -128,33 +236,27 @@ impl Emulator {
     /// `EmulatorError::RomTooLarge` if the ROM exceeds 3584 bytes,
     /// or `EmulatorError::Cpu` if an invalid opcode is encountered.
     pub fn run(&mut self, rom_path: &str) -> Result<()> {
-        // Read the ROM file into memory.
         let rom = std::fs::read(rom_path)?;
+        self.load_rom_data(&rom)?;
 
-        // Validate ROM size. Chip-8 programs occupy addresses 0x200–0xFFF,
-        // giving a maximum of 3584 bytes (4096 - 512).
-        if rom.len() > 3584 {
-            return Err(EmulatorError::RomTooLarge(rom.len()));
+        // Use the terminal frontend when the feature is enabled.
+        #[cfg(feature = "terminal")]
+        {
+            let mut frontend = crate::frontend::terminal::TerminalFrontend::new()
+                .map_err(|e| std::io::Error::other(format!("{}", e)))?;
+            self.run_with_frontend(&mut frontend)
         }
 
-        // Load the ROM into emulated memory and reset the CPU.
-        self.chip8.load_rom(&rom);
-
-        // Main emulation loop.
-        // The CPU runs at the configured clock speed (default 700 Hz),
-        // while timers decrement at a fixed 60 Hz rate.
-        let ticks_per_frame = self.chip8.config().cpu_hz / 60;
-        loop {
-            // Execute CPU ticks for one frame (~16.67 ms at 60 Hz).
-            for _ in 0..ticks_per_frame {
-                self.chip8.tick()?;
+        // Fallback: run without rendering (headless mode).
+        #[cfg(not(feature = "terminal"))]
+        {
+            let ticks_per_frame = self.chip8.config().cpu_hz / 60;
+            loop {
+                for _ in 0..ticks_per_frame {
+                    self.chip8.tick()?;
+                }
+                self.chip8.update_timers();
             }
-            // Decrement timers at 60 Hz.
-            self.chip8.update_timers();
-
-            // TODO: Render display, poll input, handle window events.
-            // The terminal and SDL2 frontends will replace this loop
-            // with their own event-driven rendering loops.
         }
     }
 }
@@ -176,7 +278,7 @@ mod tests {
     fn run_rom_ticks(rom_path: &str, ticks: u32) {
         let rom = std::fs::read(rom_path).expect("Failed to read ROM file");
         let mut emulator = Emulator::new();
-        emulator.chip8.load_rom(&rom);
+        emulator.chip8.load_rom(&rom).expect("Failed to load ROM for test");
 
         for _ in 0..ticks {
             emulator.chip8.tick().expect("CPU error during execution");
@@ -247,7 +349,7 @@ mod tests {
         // Don't call load_rom with oversized ROM — test via run() instead.
         // For now, just verify the emulator can be created and small ROMs load.
         let small_rom = vec![0u8; 100];
-        emulator.chip8.load_rom(&small_rom);
+        emulator.chip8.load_rom(&small_rom).expect("Failed to load small ROM");
     }
 
     #[test]
@@ -255,7 +357,7 @@ mod tests {
         let config = Config { quirks: Quirks::cosmac_vip(), cpu_hz: 500 };
         let mut emulator = Emulator::with_config(config);
         let rom = std::fs::read("roms/BREAKOUT.ch8").unwrap();
-        emulator.chip8.load_rom(&rom);
+        emulator.chip8.load_rom(&rom).unwrap();
         for _ in 0..500 {
             emulator.chip8.tick().unwrap();
         }
@@ -266,7 +368,7 @@ mod tests {
         let config = Config { quirks: Quirks::hp48(), cpu_hz: 700 };
         let mut emulator = Emulator::with_config(config);
         let rom = std::fs::read("roms/BREAKOUT.ch8").unwrap();
-        emulator.chip8.load_rom(&rom);
+        emulator.chip8.load_rom(&rom).unwrap();
         for _ in 0..500 {
             emulator.chip8.tick().unwrap();
         }

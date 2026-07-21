@@ -24,6 +24,9 @@ pub enum MemoryError {
     /// Attempted to access memory outside the valid 4KB address space.
     #[error("Out of bounds memory access at address: {0:#06X}")]
     OutOfBounds(usize),
+    /// The ROM data is too large to fit in the program memory area (0x200–0xFFF).
+    #[error("ROM too large: {0} bytes (max {max})", max = MEMORY_SIZE - PROG_START as usize)]
+    RomTooLarge(usize),
 }
 
 /// Represents the RAM of the Chip-8 system.
@@ -86,13 +89,20 @@ impl Memory {
 
     /// Writes a ROM's data into memory, starting at `PROG_START`.
     ///
+    /// Returns an error if the ROM data exceeds the available program
+    /// memory area (0x200–0xFFF).
+    ///
     /// # Arguments
     ///
     /// * `rom` - A byte slice containing the ROM program.
-    pub fn write_rom(&mut self, rom: &[u8]) {
+    pub fn write_rom(&mut self, rom: &[u8]) -> Result<(), MemoryError> {
         let start = PROG_START as usize;
         let end = start + rom.len();
+        if end > MEMORY_SIZE {
+            return Err(MemoryError::RomTooLarge(rom.len()));
+        }
         self.ram[start..end].copy_from_slice(rom);
+        Ok(())
     }
 
     /// Loads the hexadecimal font set into memory.

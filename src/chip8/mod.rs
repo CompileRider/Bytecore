@@ -84,15 +84,41 @@ impl Chip8 {
         &mut self.config
     }
 
+    /// Returns the current value of the sound timer.
+    pub fn sound_timer(&self) -> u8 {
+        self.timers.sound
+    }
+
     /// Returns the current quirk flags.
     pub fn quirks(&self) -> Quirks {
         self.config.quirks
     }
 
     /// Loads a ROM into memory and resets the CPU to its initial state.
-    pub fn load_rom(&mut self, rom: &[u8]) {
-        self.memory.write_rom(rom);
+    ///
+    /// # Errors
+    ///
+    /// Returns `MemoryError::RomTooLarge` if the ROM exceeds the program
+    /// memory area (0x200–0xFFF).
+    pub fn load_rom(&mut self, rom: &[u8]) -> Result<(), memory::MemoryError> {
+        self.memory.write_rom(rom)?;
         self.cpu.reset();
+        Ok(())
+    }
+
+    /// Resets the Chip8 virtual machine components to their initial state,
+    /// and optionally reloads the given ROM data.
+    pub fn reset(&mut self, rom: &[u8]) -> Result<(), memory::MemoryError> {
+        self.memory = Memory::new();
+        if !rom.is_empty() {
+            self.memory.write_rom(rom)?;
+        }
+        self.cpu.reset();
+        self.stack = Stack::new();
+        self.timers = Timers::new();
+        self.display.clear();
+        self.keypad = Keypad::new();
+        Ok(())
     }
 
     /// Executes one CPU tick (fetch-decode-execute cycle).

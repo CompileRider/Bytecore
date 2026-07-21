@@ -36,6 +36,16 @@ bitflags! {
         const JUMP_VX     = 0b0000_1000;
         /// VBlank wait quirk (DXYN): COSMAC VIP waits for VBlank before drawing.
         const WAIT_VBLANK = 0b0001_0000;
+        /// Sprite wrap quirk (DXYN): older interpreters wrap sprite pixels around
+        /// screen edges instead of clipping them. The starting coordinates are
+        /// wrapped in all variants; only the per-pixel behavior changes.
+        const SPRITE_WRAP   = 0b0010_0000;
+        /// Key release quirk (FX0A): COSMAC VIP only registers a key once it has
+        /// been pressed and then released.
+        const KEY_RELEASE   = 0b0100_0000;
+        /// I overflow flag quirk (FX1E): some interpreters set VF=1 when the index
+        /// register would overflow past address 0xFFF.
+        const I_OVERFLOW_VF = 0b1000_0000;
     }
 }
 
@@ -48,7 +58,13 @@ impl Default for Quirks {
 impl Quirks {
     /// COSMAC VIP configuration — original 1977 hardware behavior.
     pub fn cosmac_vip() -> Self {
-        Self::SHIFT_VY | Self::I_INCREMENT | Self::VF_RESET | Self::WAIT_VBLANK
+        Self::SHIFT_VY
+            | Self::I_INCREMENT
+            | Self::VF_RESET
+            | Self::WAIT_VBLANK
+            | Self::SPRITE_WRAP
+            | Self::KEY_RELEASE
+            | Self::I_OVERFLOW_VF
     }
 
     /// Modern configuration — common interpreter behavior (default).
@@ -119,5 +135,62 @@ impl Config {
         }
         std::fs::write(path, toml)?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_quick_flag_values() {
+        assert_eq!(Quirks::SHIFT_VY.bits(), 0b0000_0001);
+        assert_eq!(Quirks::I_INCREMENT.bits(), 0b0000_0010);
+        assert_eq!(Quirks::VF_RESET.bits(), 0b0000_0100);
+        assert_eq!(Quirks::JUMP_VX.bits(), 0b0000_1000);
+        assert_eq!(Quirks::WAIT_VBLANK.bits(), 0b0001_0000);
+        assert_eq!(Quirks::SPRITE_WRAP.bits(), 0b0010_0000);
+        assert_eq!(Quirks::KEY_RELEASE.bits(), 0b0100_0000);
+        assert_eq!(Quirks::I_OVERFLOW_VF.bits(), 0b1000_0000);
+    }
+
+    #[test]
+    fn test_no_overlapping_bits() {
+        let all = Quirks::SHIFT_VY
+            | Quirks::I_INCREMENT
+            | Quirks::VF_RESET
+            | Quirks::JUMP_VX
+            | Quirks::WAIT_VBLANK
+            | Quirks::SPRITE_WRAP
+            | Quirks::KEY_RELEASE
+            | Quirks::I_OVERFLOW_VF;
+        assert_eq!(all.bits(), 0xFF, "All eight flags must combine to 0xFF with no overlap");
+    }
+
+    #[test]
+    fn test_cosmac_vip_includes_new_quirks() {
+        let q = Quirks::cosmac_vip();
+        assert!(q.contains(Quirks::SPRITE_WRAP), "COSMAC VIP must include SPRITE_WRAP");
+        assert!(q.contains(Quirks::KEY_RELEASE), "COSMAC VIP must include KEY_RELEASE");
+        assert!(q.contains(Quirks::I_OVERFLOW_VF), "COSMAC VIP must include I_OVERFLOW_VF");
+    }
+
+    #[test]
+    fn test_modern_excludes_new_quirks() {
+        let q = Quirks::modern();
+        assert!(!q.contains(Quirks::SPRITE_WRAP), "Modern must NOT include SPRITE_WRAP");
+        assert!(!q.contains(Quirks::KEY_RELEASE), "Modern must NOT include KEY_RELEASE");
+        assert!(!q.contains(Quirks::I_OVERFLOW_VF), "Modern must NOT include I_OVERFLOW_VF");
+    }
+
+    #[test]
+    fn test_hp48_is_minimal() {
+        let q = Quirks::hp48();
+        assert_eq!(q, Quirks::JUMP_VX, "HP48 must only set JUMP_VX");
+    }
+
+    #[test]
+    fn test_default_is_modern() {
+        assert_eq!(Quirks::default(), Quirks::modern());
     }
 }
